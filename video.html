@@ -5,7 +5,7 @@
   <title>재난 모니터링</title>
   <style>
     body {
-      background: #232946;
+      background: #181a1b;
       color: #eebbc3;
       font-family: 'Segoe UI', 'Malgun Gothic', Arial, sans-serif;
       margin: 0;
@@ -38,7 +38,7 @@
       background: #393e6a;
       border-radius: 1rem;
       box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-      padding: 1.5rem;
+      padding: 2.5rem;
       margin-bottom: 2rem;
       display: flex;
       flex-direction: column;
@@ -47,9 +47,11 @@
     .video-box img {
       border-radius: 0.5rem;
       border: 4px solid #eebbc3;
-      max-width: 90vw;
-      max-height: 60vh;
+      max-width: 80vw;
+      max-height: 70vh;
       background: #232946;
+      box-sizing: border-box;
+      display: block;
     }
     footer {
       background: #121629;
@@ -62,6 +64,7 @@
     @media (max-width: 600px) {
       header h1 { font-size: 1.5rem; }
       .video-box img { max-width: 100vw; max-height: 30vh; }
+      .video-box { padding: 1rem; }
     }
   </style>
 </head>
