@@ -4,17 +4,36 @@ import asyncio
 import json
 import time
 import cv2
-import RPi.GPIO as GPIO
 import requests
 
+# 라즈베리파이 5용 GPIO 라이브러리
+try:
+    from gpiozero import LED
+    GPIO_AVAILABLE = True
+except ImportError:
+    try:
+        import RPi.GPIO as GPIO
+        GPIO_AVAILABLE = True
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
+    except ImportError:
+        GPIO_AVAILABLE = False
 
 ip = '222.231.24.5'  # 서버 IP
 
 # GPIO 설정
 LED_PIN = 7
-GPIO.setmode(GPIO.BOARD)
-GPIO.setwarnings(False)
-GPIO.setup(LED_PIN, GPIO.OUT)
+if GPIO_AVAILABLE:
+    try:
+        led = LED(LED_PIN)  # gpiozero 사용
+        LED_METHOD = 'gpiozero'
+    except:
+        GPIO.setup(LED_PIN, GPIO.OUT)  # RPi.GPIO 사용
+        LED_METHOD = 'RPi.GPIO'
+        led = None
+else:
+    led = None
+    LED_METHOD = None
 
 class CameraThread:
     def __init__(self, device_path=0):
@@ -69,20 +88,29 @@ async def send_frames(cam):
                 # 사람 감지 시 LED 깜빡임 (2초간)
                 if person_data.get('person', False) and (current_time - last_person_alert) > 2:
                     print("사람 감지! LED 켜짐")
-                    GPIO.output(LED_PIN, GPIO.HIGH)
+                    if LED_METHOD == 'gpiozero' and led:
+                        led.on()
+                    elif LED_METHOD == 'RPi.GPIO':
+                        GPIO.output(LED_PIN, GPIO.HIGH)
                     led_state = True
                     last_person_alert = current_time
                 
                 # 화재 감지 시 LED 깜빡임 (1초간)
                 elif fire_data.get('fire', False) and (current_time - last_fire_alert) > 1:
                     print("화재 감지! LED 켜짐")
-                    GPIO.output(LED_PIN, GPIO.HIGH)
+                    if LED_METHOD == 'gpiozero' and led:
+                        led.on()
+                    elif LED_METHOD == 'RPi.GPIO':
+                        GPIO.output(LED_PIN, GPIO.HIGH)
                     led_state = True
                     last_fire_alert = current_time
                 
                 # LED 자동 끄기 (경보 후 2초 후)
                 if led_state and (current_time - last_person_alert) > 2 and (current_time - last_fire_alert) > 2:
-                    GPIO.output(LED_PIN, GPIO.LOW)
+                    if LED_METHOD == 'gpiozero' and led:
+                        led.off()
+                    elif LED_METHOD == 'RPi.GPIO':
+                        GPIO.output(LED_PIN, GPIO.LOW)
                     led_state = False
                     print("LED 꺼짐")
                     
@@ -103,7 +131,10 @@ def main():
         pass
     finally:
         cam.release()
-        GPIO.cleanup()  # GPIO 정리
+        if LED_METHOD == 'RPi.GPIO':
+            GPIO.cleanup()  # GPIO 정리
+        elif LED_METHOD == 'gpiozero' and led:
+            led.close()  # gpiozero 정리
 
 if __name__ == "__main__":
     main()
