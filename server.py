@@ -6,8 +6,9 @@ import numpy as np
 import cv2
 import json
 import time
-from flask import Flask, Response
+from flask import Flask, Response, send_from_directory
 import torch
+import os
 
 # YOLOv5n 모델 로드 (ultralytics/yolov5 필요)
 model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
@@ -66,6 +67,12 @@ def video_feed():
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             time.sleep(0.03)
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+# video.html을 서비스하는 엔드포인트 추가
+@app.route('/')
+def serve_monitoring():
+    # Hanmadang 폴더에 video.html이 있다고 가정
+    return send_from_directory(os.path.abspath(os.path.dirname(__file__)), 'video.html')
 
 if __name__ == '__main__':
     t = threading.Thread(target=ws_thread, daemon=True)
