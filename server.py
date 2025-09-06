@@ -14,14 +14,6 @@ from flask import Flask, Response, send_from_directory, jsonify
 import torch
 import os
 
-# 온습도 센서 라이브러리 (라즈베리파이에서만 동작)
-try:
-    import board
-    import adafruit_dht
-    DHT_AVAILABLE = True
-except ImportError:
-    DHT_AVAILABLE = False
-
 # YOLOv5n 모델 로드 (ultralytics/yolov5 필요)
 model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
 
@@ -39,35 +31,9 @@ envLock = threading.Lock()
 # 화재 감지 임계 온도 (Celsius)
 FIRE_TEMP_THRESHOLD = 50.0
 
-# 온습도 센서 스레드
-def dht_thread():
-    global latestFireDetected, latestTemp, latestHumidity
-    if not DHT_AVAILABLE:
-        return
-    dhtDevice = adafruit_dht.DHT22(board.D4)
-    while True:
-        try:
-            temperature_c = dhtDevice.temperature
-            humidity = dhtDevice.humidity
-            with envLock:
-                latestTemp = temperature_c
-                latestHumidity = humidity
-            print(f"[DHT] Temp: {temperature_c} C")
-            fire = temperature_c is not None and temperature_c >= FIRE_TEMP_THRESHOLD
-            with fireLock:
-                latestFireDetected = fire
-        except RuntimeError:
-            time.sleep(2.0)
-            continue
-        except Exception as error:
-            dhtDevice.exit()
-            print(f"[DHT] Fatal error: {error}")
-            break
-        time.sleep(2.0)
-
-# WebSocket 서버: 클라이언트에서 프레임 수신
+# WebSocket 서버: 클라이언트에서 프레임+온습도 수신
 async def handle_client(websocket):
-    global latestFrame, latestPersonDetected
+    global latestFrame, latestPersonDetected, latestTemp, latestHumidity, latestFireDetected
     try:
         while True:
             msg = await websocket.recv()
@@ -76,9 +42,7 @@ async def handle_client(websocket):
             img = cv2.imdecode(np.frombuffer(imgBytes, np.uint8), cv2.IMREAD_COLOR)
             if img is None:
                 continue
-            # 해상도 낮추기
             img = cv2.resize(img, (320, 180))
-            # YOLOv5n 감지 (GPU 자동 사용)
             results = model(img)
             person_found = False
             for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
@@ -92,6 +56,13 @@ async def handle_client(websocket):
                 latestFrame = img.copy()
             with personLock:
                 latestPersonDetected = person_found
+            # 온습도 저장 및 화재 감지
+            with envLock:
+                latestTemp = data.get("temperature")
+                latestHumidity = data.get("humidity")
+                fire = latestTemp is not None and latestTemp >= FIRE_TEMP_THRESHOLD
+            with fireLock:
+                latestFireDetected = fire
     except websockets.exceptions.ConnectionClosed:
         pass
 
@@ -150,7 +121,4 @@ def env_status():
 if __name__ == '__main__':
     t = threading.Thread(target=ws_thread, daemon=True)
     t.start()
-    if DHT_AVAILABLE:
-        dht_t = threading.Thread(target=dht_thread, daemon=True)
-        dht_t.start()
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
