@@ -3,12 +3,10 @@ import threading
 import numpy as np
 import cv2
 import time
-from ultralytics import YOLO
 
 app = Flask(__name__)
 latest_frame = None
 frame_lock = threading.Lock()
-model = YOLO('yolov8n.pt')  # 작은 모델 사용, 필요시 yolov8s.pt 등으로 변경
 
 @app.route('/upload_frame', methods=['POST'])
 def upload_frame():
@@ -17,18 +15,9 @@ def upload_frame():
     npimg = np.frombuffer(file.read(), np.uint8)
     frame = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
     if frame is not None:
-        # YOLO object detection
-        results = model(frame, verbose=False)
-        for r in results:
-            for box in r.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                label = model.names[int(box.cls[0])]
-                conf = float(box.conf[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         with frame_lock:
             latest_frame = frame
-        print("Frame received, YOLO detection complete, and updated")
+        print("Frame received and updated")
     else:
         print("Frame decode failed")
     return 'OK'
