@@ -23,6 +23,8 @@ while True:
             conf = float(box.conf[0])
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    # 로컬에서 프레임 표시
+    cv2.imshow('YOLO Frame', frame)
     _, img_encoded = cv2.imencode('.jpg', frame)
     response = requests.post(server_url, files={'frame': img_encoded.tobytes()})
     if cv2.waitKey(1) & 0xFF == ord('q'):
