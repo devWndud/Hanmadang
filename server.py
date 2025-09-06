@@ -28,27 +28,30 @@ latestPersonDetected = False
 personLock = threading.Lock()
 latestFireDetected = False
 fireLock = threading.Lock()
+latestTemp = None
+latestHumidity = None
+envLock = threading.Lock()
 
 # 화재 감지 임계 온도 (Celsius)
 FIRE_TEMP_THRESHOLD = 50.0
 
 # 온습도 센서 스레드
 def dht_thread():
-    global latestFireDetected
+    global latestFireDetected, latestTemp, latestHumidity
     if not DHT_AVAILABLE:
-        print('DHT 센서 라이브러리 없음. 화재 감지 비활성화.')
         return
     dhtDevice = adafruit_dht.DHT22(board.D4)
     while True:
         try:
             temperature_c = dhtDevice.temperature
             humidity = dhtDevice.humidity
-            print(f"[DHT] Temp: {temperature_c} C, Humidity: {humidity}%")
+            with envLock:
+                latestTemp = temperature_c
+                latestHumidity = humidity
             fire = temperature_c is not None and temperature_c >= FIRE_TEMP_THRESHOLD
             with fireLock:
                 latestFireDetected = fire
-        except RuntimeError as error:
-            print(f"[DHT] {error.args[0]}")
+        except RuntimeError:
             time.sleep(2.0)
             continue
         except Exception as error:
@@ -89,7 +92,6 @@ async def handle_client(websocket):
 
 async def start_ws_server():
     async with websockets.serve(handle_client, "0.0.0.0", 8000):
-        print("WebSocket server started on ws://0.0.0.0:8000")
         await asyncio.Future()
 
 def ws_thread():
@@ -131,6 +133,14 @@ def fire_status():
     with fireLock:
         fire = latestFireDetected
     return jsonify({"fire": fire})
+
+# 온습도 상태 반환
+@app.route('/env_status')
+def env_status():
+    with envLock:
+        temp = latestTemp
+        hum = latestHumidity
+    return jsonify({"temperature": temp, "humidity": hum})
 
 if __name__ == '__main__':
     t = threading.Thread(target=ws_thread, daemon=True)
