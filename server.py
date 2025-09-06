@@ -1,4 +1,8 @@
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import asyncio
 import websockets
 import threading
@@ -48,6 +52,7 @@ def dht_thread():
             with envLock:
                 latestTemp = temperature_c
                 latestHumidity = humidity
+            print(f"[DHT] Temp: {temperature_c} C")
             fire = temperature_c is not None and temperature_c >= FIRE_TEMP_THRESHOLD
             with fireLock:
                 latestFireDetected = fire
