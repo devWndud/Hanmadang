@@ -16,6 +16,7 @@ import os
 
 # YOLOv5n 모델 로드 (ultralytics/yolov5 필요)
 model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
+model.eval()  # 평가 모드로 설정하여 최적화
 
 app = Flask(__name__)
 latestFrame = None
@@ -42,20 +43,36 @@ async def handle_client(websocket):
             img = cv2.imdecode(np.frombuffer(imgBytes, np.uint8), cv2.IMREAD_COLOR)
             if img is None:
                 continue
-            img = cv2.resize(img, (320, 180))
-            results = model(img)
+            
+            # 해상도 낮추기 (더 작게)
+            img = cv2.resize(img, (240, 135))
+            
+            # YOLO 추론 최적화
+            with torch.no_grad():  # 그래디언트 계산 비활성화
+                results = model(img, verbose=False)
+            
             person_found = False
-            for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
-                x1, y1, x2, y2 = map(int, xyxy)
-                label = model.names[int(cls)]
-                if label == 'person':
-                    person_found = True
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(img, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            # 감지 결과 처리 최적화
+            if len(results.xyxy) > 0 and len(results.xyxy[0]) > 0:
+                detections = results.xyxy[0].cpu().numpy()
+                for *xyxy, conf, cls in detections:
+                    if conf < 0.5:  # 신뢰도 0.5 미만은 무시
+                        continue
+                    x1, y1, x2, y2 = map(int, xyxy)
+                    label = model.names[int(cls)]
+                    if label == 'person':
+                        person_found = True
+                    # 박스 그리기 최적화 (더 얇은 선)
+                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 1)
+                    cv2.putText(img, f'{label} {conf:.1f}', (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+            
+            # 프레임 저장 (해상도 복원)
+            img_resized = cv2.resize(img, (320, 180))
             with frameLock:
-                latestFrame = img.copy()
+                latestFrame = img_resized.copy()
             with personLock:
                 latestPersonDetected = person_found
+                
             # 온습도 저장 (클라이언트에서 전송된 경우만)
             if "temperature" in data and "humidity" in data:
                 with envLock:
@@ -81,15 +98,15 @@ def video_feed():
             with frameLock:
                 frame = latestFrame.copy() if latestFrame is not None else None
             if frame is None:
-                time.sleep(0.05)
+                time.sleep(0.1)  # 대기 시간 증가
                 continue
-            ret, jpeg = cv2.imencode('.jpg', frame)
+            ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])  # 품질 낮춤
             if not ret:
                 continue
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            time.sleep(0.03)
+            time.sleep(0.1)  # 프레임 간격 증가
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # video.html을 서비스하는 엔드포인트 추가

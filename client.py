@@ -34,15 +34,15 @@ async def send_frames(cam):
             if not ret or frame is None:
                 await asyncio.sleep(0.01)
                 continue
-            frame = cv2.resize(frame, (640, 360))
-            _, img = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            frame = cv2.resize(frame, (480, 270))  # 해상도 낮춤
+            _, img = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])  # 품질 낮춤
 
             payload = {
                 "img": list(img.tobytes()),
                 "uniqueCode": uniqueCode
             }
             await ws.send(json.dumps(payload))
-            await asyncio.sleep(0.5)  # 0.5초마다 전송
+            await asyncio.sleep(0.3)  # 0.3초마다 전송 (더 빠르게)
 
 def main():
     cam = CameraThread(0)
