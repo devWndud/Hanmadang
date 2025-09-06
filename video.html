@@ -3,28 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <title>재난 모니터링</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      background: #181a1b;
-      color: #eebbc3;
-      font-family: 'Segoe UI', 'Malgun Gothic', Arial, sans-serif;
+    :root {
+      --dark-gray: #181a1b;
+      --mid-gray: #232326;
+      --accent: #eebbc3;
+      --text: #f4f4f4;
+      --subtext: #b8c1ec;
+    }
+    html, body {
+      height: 100%;
       margin: 0;
       padding: 0;
+      background: var(--dark-gray);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Malgun Gothic', Arial, sans-serif;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    body {
       display: flex;
       flex-direction: column;
       min-height: 100vh;
     }
     header {
-      background: #121629;
+      width: 100%;
+      background: var(--mid-gray);
       padding: 2rem 0 1rem 0;
       text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     header h1 {
       margin: 0;
-      font-size: 2.5rem;
-      letter-spacing: 0.1em;
-      color: #eebbc3;
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
     }
     main {
       flex: 1;
@@ -32,39 +47,43 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 2rem 0;
+      padding: 2rem 0 1rem 0;
     }
-    .video-box {
-      background: #393e6a;
-      border-radius: 1rem;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-      padding: 2.5rem;
-      margin-bottom: 2rem;
+    .video-wrap {
+      background: var(--mid-gray);
+      border-radius: 1.2rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      padding: 2rem;
       display: flex;
       flex-direction: column;
       align-items: center;
+      max-width: 95vw;
+      margin-bottom: 2rem;
     }
-    .video-box img {
-      border-radius: 0.5rem;
-      border: 4px solid #eebbc3;
-      max-width: 80vw;
+    .video-wrap img {
+      border-radius: 0.7rem;
+      border: 3px solid var(--accent);
+      max-width: 90vw;
       max-height: 70vh;
-      background: #232946;
-      box-sizing: border-box;
+      background: var(--dark-gray);
       display: block;
+      box-sizing: border-box;
     }
     footer {
-      background: #121629;
-      color: #b8c1ec;
+      width: 100%;
+      background: var(--mid-gray);
+      color: var(--subtext);
       text-align: center;
-      padding: 1rem 0;
-      font-size: 1.1rem;
-      letter-spacing: 0.05em;
+      padding: 1.2rem 0 1.2rem 0;
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
     }
     @media (max-width: 600px) {
-      header h1 { font-size: 1.5rem; }
-      .video-box img { max-width: 100vw; max-height: 30vh; }
-      .video-box { padding: 1rem; }
+      header h1 { font-size: 1.2rem; }
+      .video-wrap { padding: 0.7rem; }
+      .video-wrap img { max-width: 98vw; max-height: 32vh; }
+      main { padding: 1rem 0 0.5rem 0; }
+      footer { font-size: 0.95rem; padding: 0.7rem 0; }
     }
   </style>
 </head>
@@ -73,12 +92,12 @@
     <h1>재난 모니터링 시스템</h1>
   </header>
   <main>
-    <div class="video-box">
+    <div class="video-wrap">
       <img src="http://222.231.24.5:5000/video_feed" alt="실시간 재난 감시 영상" />
     </div>
   </main>
   <footer>
-    실시간 객체 감지 기반 재난 모니터링 시스템 &middot; YOLOv5n 적용<br>
+    실시간 객체 감지 기반 재난 모니터링 &middot; YOLOv5n 적용<br>
     위험 상황 발생 시 즉각적인 대응을 위한 영상 모니터링 플랫폼
   </footer>
 </body>
