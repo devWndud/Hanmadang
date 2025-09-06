@@ -6,7 +6,7 @@ import cv2
 import requests
 
 cap = cv2.VideoCapture(0)
-server_url = 'http://[서버IP]:5000/upload_frame'  # 서버에 맞게 수정
+server_url = 'http://222.231.24.5:5000/upload_frame'  # 서버에 맞게 수정
 
 while True:
     ret, frame = cap.read()
