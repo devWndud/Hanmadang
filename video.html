@@ -45,6 +45,22 @@
       z-index: 1000;
       box-shadow: 0 2px 12px rgba(0,0,0,0.18);
     }
+    .fire-alert {
+      width: 100%;
+      background: var(--alert-bg);
+      color: var(--alert-text);
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      padding: 0.7rem 0;
+      letter-spacing: 0.08em;
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      z-index: 1000;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.18);
+    }
     header {
       width: 100%;
       background: var(--mid-gray);
@@ -100,6 +116,7 @@
     @media (max-width: 600px) {
       header h1 { font-size: 1.2rem; }
       .alert { font-size: 1rem; padding: 0.7rem 0; }
+      .fire-alert { font-size: 1rem; padding: 0.5rem 0; }
       .video-wrap { padding: 0.7rem; }
       .video-wrap img { max-width: 98vw; max-height: 32vh; }
       main { padding: 1rem 0 0.5rem 0; }
@@ -121,6 +138,7 @@
     실시간 객체 감지 기반 재난 모니터링 &middot; YOLOv5n 적용<br>
     위험 상황 발생 시 즉각적인 대응을 위한 영상 모니터링 플랫폼
   </footer>
+  <div class="fire-alert" id="fireAlert">화재 발생!</div>
   <script>
     async function pollPersonStatus() {
       try {
@@ -132,12 +150,25 @@
         } else {
           alertDiv.style.display = 'none';
         }
-      } catch (e) {
-        // 네트워크 오류 등 무시
-      }
+      } catch (e) {}
       setTimeout(pollPersonStatus, 700);
     }
     pollPersonStatus();
+
+    async function pollFireStatus() {
+      try {
+        const res = await fetch('/fire_status');
+        const data = await res.json();
+        const fireDiv = document.getElementById('fireAlert');
+        if (data.fire) {
+          fireDiv.style.display = 'block';
+        } else {
+          fireDiv.style.display = 'none';
+        }
+      } catch (e) {}
+      setTimeout(pollFireStatus, 1200);
+    }
+    pollFireStatus();
   </script>
 </body>
 </html>

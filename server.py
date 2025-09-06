@@ -10,6 +10,14 @@ from flask import Flask, Response, send_from_directory, jsonify
 import torch
 import os
 
+# 온습도 센서 라이브러리 (라즈베리파이에서만 동작)
+try:
+    import board
+    import adafruit_dht
+    DHT_AVAILABLE = True
+except ImportError:
+    DHT_AVAILABLE = False
+
 # YOLOv5n 모델 로드 (ultralytics/yolov5 필요)
 model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
 
@@ -18,6 +26,36 @@ latestFrame = None
 frameLock = threading.Lock()
 latestPersonDetected = False
 personLock = threading.Lock()
+latestFireDetected = False
+fireLock = threading.Lock()
+
+# 화재 감지 임계 온도 (Celsius)
+FIRE_TEMP_THRESHOLD = 50.0
+
+# 온습도 센서 스레드
+def dht_thread():
+    global latestFireDetected
+    if not DHT_AVAILABLE:
+        print('DHT 센서 라이브러리 없음. 화재 감지 비활성화.')
+        return
+    dhtDevice = adafruit_dht.DHT22(board.D4)
+    while True:
+        try:
+            temperature_c = dhtDevice.temperature
+            humidity = dhtDevice.humidity
+            print(f"[DHT] Temp: {temperature_c} C, Humidity: {humidity}%")
+            fire = temperature_c is not None and temperature_c >= FIRE_TEMP_THRESHOLD
+            with fireLock:
+                latestFireDetected = fire
+        except RuntimeError as error:
+            print(f"[DHT] {error.args[0]}")
+            time.sleep(2.0)
+            continue
+        except Exception as error:
+            dhtDevice.exit()
+            print(f"[DHT] Fatal error: {error}")
+            break
+        time.sleep(2.0)
 
 # WebSocket 서버: 클라이언트에서 프레임 수신
 async def handle_client(websocket):
@@ -87,7 +125,17 @@ def person_status():
         detected = latestPersonDetected
     return jsonify({"person": detected})
 
+# 화재 감지 상태를 반환하는 엔드포인트
+@app.route('/fire_status')
+def fire_status():
+    with fireLock:
+        fire = latestFireDetected
+    return jsonify({"fire": fire})
+
 if __name__ == '__main__':
     t = threading.Thread(target=ws_thread, daemon=True)
     t.start()
+    if DHT_AVAILABLE:
+        dht_t = threading.Thread(target=dht_thread, daemon=True)
+        dht_t.start()
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
