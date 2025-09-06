@@ -49,7 +49,7 @@ async def handle_client(websocket):
             
             # YOLO 추론 최적화
             with torch.no_grad():  # 그래디언트 계산 비활성화
-                results = model(img, verbose=False)
+                results = model(img)
             
             person_found = False
             # 감지 결과 처리 최적화
