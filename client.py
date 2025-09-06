@@ -1,4 +1,3 @@
-
 import websockets
 import asyncio
 import json
@@ -10,30 +9,35 @@ import requests
 try:
     from gpiozero import LED
     GPIO_AVAILABLE = True
+    LED_METHOD = 'gpiozero'
 except ImportError:
     try:
         import RPi.GPIO as GPIO
         GPIO_AVAILABLE = True
         GPIO.setmode(GPIO.BOARD)
         GPIO.setwarnings(False)
+        LED_METHOD = 'RPi.GPIO'
     except ImportError:
         GPIO_AVAILABLE = False
+        LED_METHOD = None
 
 ip = '222.231.24.5'  # 서버 IP
 
 # GPIO 설정
 LED_PIN = 7
+led = None
+
 if GPIO_AVAILABLE:
-    try:
-        led = LED(LED_PIN)  # gpiozero 사용
-        LED_METHOD = 'gpiozero'
-    except:
-        GPIO.setup(LED_PIN, GPIO.OUT)  # RPi.GPIO 사용
-        LED_METHOD = 'RPi.GPIO'
-        led = None
-else:
-    led = None
-    LED_METHOD = None
+    if LED_METHOD == 'gpiozero':
+        try:
+            led = LED(LED_PIN)
+        except:
+            led = None
+    elif LED_METHOD == 'RPi.GPIO':
+        try:
+            GPIO.setup(LED_PIN, GPIO.OUT)
+        except:
+            led = None
 
 class CameraThread:
     def __init__(self, device_path=0):
@@ -51,6 +55,25 @@ class CameraThread:
     def release(self):
         if self.cap.isOpened():
             self.cap.release()
+
+def control_led(state):
+    """LED 제어 함수"""
+    if not GPIO_AVAILABLE or not led:
+        return
+    
+    try:
+        if LED_METHOD == 'gpiozero':
+            if state:
+                led.on()
+            else:
+                led.off()
+        elif LED_METHOD == 'RPi.GPIO':
+            if state:
+                GPIO.output(LED_PIN, GPIO.HIGH)
+            else:
+                GPIO.output(LED_PIN, GPIO.LOW)
+    except Exception as e:
+        print(f"LED 제어 오류: {e}")
 
 async def send_frames(cam):
     uniqueCode = 'A7X2bQ9cLmY1'
@@ -85,32 +108,23 @@ async def send_frames(cam):
                 
                 current_time = time.time()
                 
-                # 사람 감지 시 LED 깜빡임 (2초간)
+                # 사람 감지 시 LED 켜기 (2초간)
                 if person_data.get('person', False) and (current_time - last_person_alert) > 2:
                     print("사람 감지! LED 켜짐")
-                    if LED_METHOD == 'gpiozero' and led:
-                        led.on()
-                    elif LED_METHOD == 'RPi.GPIO':
-                        GPIO.output(LED_PIN, GPIO.HIGH)
+                    control_led(True)
                     led_state = True
                     last_person_alert = current_time
                 
-                # 화재 감지 시 LED 깜빡임 (1초간)
+                # 화재 감지 시 LED 켜기 (1초간)
                 elif fire_data.get('fire', False) and (current_time - last_fire_alert) > 1:
                     print("화재 감지! LED 켜짐")
-                    if LED_METHOD == 'gpiozero' and led:
-                        led.on()
-                    elif LED_METHOD == 'RPi.GPIO':
-                        GPIO.output(LED_PIN, GPIO.HIGH)
+                    control_led(True)
                     led_state = True
                     last_fire_alert = current_time
                 
                 # LED 자동 끄기 (경보 후 2초 후)
                 if led_state and (current_time - last_person_alert) > 2 and (current_time - last_fire_alert) > 2:
-                    if LED_METHOD == 'gpiozero' and led:
-                        led.off()
-                    elif LED_METHOD == 'RPi.GPIO':
-                        GPIO.output(LED_PIN, GPIO.LOW)
+                    control_led(False)
                     led_state = False
                     print("LED 꺼짐")
                     
@@ -118,7 +132,7 @@ async def send_frames(cam):
                 # 네트워크 오류 시 무시
                 pass
             
-            await asyncio.sleep(0.3)  # 0.3초마다 전송 (더 빠르게)
+            await asyncio.sleep(0.3)  # 0.3초마다 전송
 
 def main():
     cam = CameraThread(0)
@@ -131,10 +145,11 @@ def main():
         pass
     finally:
         cam.release()
+        # GPIO 정리
         if LED_METHOD == 'RPi.GPIO':
-            GPIO.cleanup()  # GPIO 정리
+            GPIO.cleanup()
         elif LED_METHOD == 'gpiozero' and led:
-            led.close()  # gpiozero 정리
+            led.close()
 
 if __name__ == "__main__":
     main()
