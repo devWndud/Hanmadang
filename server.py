@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import json
 import time
-from flask import Flask, Response, send_from_directory
+from flask import Flask, Response, send_from_directory, jsonify
 import torch
 import os
 
@@ -16,10 +16,12 @@ model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
 app = Flask(__name__)
 latestFrame = None
 frameLock = threading.Lock()
+latestPersonDetected = False
+personLock = threading.Lock()
 
 # WebSocket 서버: 클라이언트에서 프레임 수신
 async def handle_client(websocket):
-    global latestFrame
+    global latestFrame, latestPersonDetected
     try:
         while True:
             msg = await websocket.recv()
@@ -32,13 +34,18 @@ async def handle_client(websocket):
             img = cv2.resize(img, (320, 180))
             # YOLOv5n 감지 (GPU 자동 사용)
             results = model(img)
+            person_found = False
             for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
                 x1, y1, x2, y2 = map(int, xyxy)
                 label = model.names[int(cls)]
+                if label == 'person':
+                    person_found = True
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(img, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             with frameLock:
                 latestFrame = img.copy()
+            with personLock:
+                latestPersonDetected = person_found
     except websockets.exceptions.ConnectionClosed:
         pass
 
@@ -71,8 +78,14 @@ def video_feed():
 # video.html을 서비스하는 엔드포인트 추가
 @app.route('/')
 def serve_monitoring():
-    # Hanmadang 폴더에 video.html이 있다고 가정
     return send_from_directory(os.path.abspath(os.path.dirname(__file__)), 'video.html')
+
+# 사람 감지 상태를 반환하는 엔드포인트
+@app.route('/person_status')
+def person_status():
+    with personLock:
+        detected = latestPersonDetected
+    return jsonify({"person": detected})
 
 if __name__ == '__main__':
     t = threading.Thread(target=ws_thread, daemon=True)

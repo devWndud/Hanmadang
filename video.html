@@ -11,6 +11,8 @@
       --accent: #eebbc3;
       --text: #f4f4f4;
       --subtext: #b8c1ec;
+      --alert-bg: #ff4f4f;
+      --alert-text: #fff;
     }
     html, body {
       height: 100%;
@@ -27,12 +29,29 @@
       flex-direction: column;
       min-height: 100vh;
     }
+    .alert {
+      width: 100%;
+      background: var(--alert-bg);
+      color: var(--alert-text);
+      text-align: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+      padding: 1rem 0;
+      letter-spacing: 0.08em;
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    }
     header {
       width: 100%;
       background: var(--mid-gray);
       padding: 2rem 0 1rem 0;
       text-align: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-top: 0;
     }
     header h1 {
       margin: 0;
@@ -80,6 +99,7 @@
     }
     @media (max-width: 600px) {
       header h1 { font-size: 1.2rem; }
+      .alert { font-size: 1rem; padding: 0.7rem 0; }
       .video-wrap { padding: 0.7rem; }
       .video-wrap img { max-width: 98vw; max-height: 32vh; }
       main { padding: 1rem 0 0.5rem 0; }
@@ -88,6 +108,7 @@
   </style>
 </head>
 <body>
+  <div class="alert" id="personAlert">사람이 감지되었습니다</div>
   <header>
     <h1>재난 모니터링 시스템</h1>
   </header>
@@ -100,5 +121,23 @@
     실시간 객체 감지 기반 재난 모니터링 &middot; YOLOv5n 적용<br>
     위험 상황 발생 시 즉각적인 대응을 위한 영상 모니터링 플랫폼
   </footer>
+  <script>
+    async function pollPersonStatus() {
+      try {
+        const res = await fetch('/person_status');
+        const data = await res.json();
+        const alertDiv = document.getElementById('personAlert');
+        if (data.person) {
+          alertDiv.style.display = 'block';
+        } else {
+          alertDiv.style.display = 'none';
+        }
+      } catch (e) {
+        // 네트워크 오류 등 무시
+      }
+      setTimeout(pollPersonStatus, 700);
+    }
+    pollPersonStatus();
+  </script>
 </body>
 </html>
