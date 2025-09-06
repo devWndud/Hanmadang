@@ -10,7 +10,7 @@ from flask import Flask, Response
 from ultralytics import YOLO
 
 app = Flask(__name__)
-model = YOLO('yolov8x.pt')
+model = YOLO('yolov8n.pt')  # 가벼운 모델로 변경
 
 latestFrame = None
 frameLock = threading.Lock()
@@ -26,8 +26,10 @@ async def handle_client(websocket):
             img = cv2.imdecode(np.frombuffer(imgBytes, np.uint8), cv2.IMREAD_COLOR)
             if img is None:
                 continue
-            # YOLO 감지
-            results = model(img, verbose=False)
+            # 해상도 낮추기
+            img = cv2.resize(img, (320, 180))
+            # YOLO 감지 (GPU 자동 사용)
+            results = model(img, verbose=False, device=0)  # device=0: GPU 우선, 없으면 CPU
             for r in results:
                 for box in r.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
