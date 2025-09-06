@@ -7,11 +7,12 @@ import cv2
 import json
 import time
 from flask import Flask, Response
-from ultralytics import YOLO
+import torch
+
+# YOLOv5n 모델 로드 (ultralytics/yolov5 필요)
+model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
 
 app = Flask(__name__)
-model = YOLO('yolov8n.pt')  # 가벼운 모델로 변경
-
 latestFrame = None
 frameLock = threading.Lock()
 
@@ -28,16 +29,13 @@ async def handle_client(websocket):
                 continue
             # 해상도 낮추기
             img = cv2.resize(img, (320, 180))
-            # YOLO 감지 (GPU 자동 사용)
-            results = model(img, verbose=False, device=0)  # device=0: GPU 우선, 없으면 CPU
-            for r in results:
-                for box in r.boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = float(box.conf[0])
-                    cls = int(box.cls[0])
-                    label = model.names[cls]
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(img, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            # YOLOv5n 감지 (GPU 자동 사용)
+            results = model(img)
+            for *xyxy, conf, cls in results.xyxy[0].cpu().numpy():
+                x1, y1, x2, y2 = map(int, xyxy)
+                label = model.names[int(cls)]
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(img, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             with frameLock:
                 latestFrame = img.copy()
     except websockets.exceptions.ConnectionClosed:
