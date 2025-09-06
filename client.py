@@ -5,13 +5,6 @@ import json
 import time
 import cv2
 
-# 온습도 센서 라이브러리
-try:
-    import board
-    import adafruit_dht
-    DHT_AVAILABLE = True
-except ImportError:
-    DHT_AVAILABLE = False
 
 ip = '222.231.24.5'  # 서버 IP
 
@@ -34,10 +27,6 @@ class CameraThread:
 
 async def send_frames(cam):
     uniqueCode = 'A7X2bQ9cLmY1'
-    if DHT_AVAILABLE:
-        dhtDevice = adafruit_dht.DHT22(board.D4)
-    else:
-        dhtDevice = None
 
     async with websockets.connect(f'ws://{ip}:8000') as ws:
         while True:
@@ -48,21 +37,9 @@ async def send_frames(cam):
             frame = cv2.resize(frame, (640, 360))
             _, img = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
 
-            # 온습도 읽기
-            temperature = None
-            humidity = None
-            if dhtDevice:
-                try:
-                    temperature = dhtDevice.temperature
-                    humidity = dhtDevice.humidity
-                except Exception:
-                    pass
-
             payload = {
                 "img": list(img.tobytes()),
-                "uniqueCode": uniqueCode,
-                "temperature": temperature,
-                "humidity": humidity
+                "uniqueCode": uniqueCode
             }
             await ws.send(json.dumps(payload))
             await asyncio.sleep(0.5)  # 0.5초마다 전송

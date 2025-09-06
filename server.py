@@ -56,13 +56,14 @@ async def handle_client(websocket):
                 latestFrame = img.copy()
             with personLock:
                 latestPersonDetected = person_found
-            # 온습도 저장 및 화재 감지
-            with envLock:
-                latestTemp = data.get("temperature")
-                latestHumidity = data.get("humidity")
-                fire = latestTemp is not None and latestTemp >= FIRE_TEMP_THRESHOLD
-            with fireLock:
-                latestFireDetected = fire
+            # 온습도 저장 (클라이언트에서 전송된 경우만)
+            if "temperature" in data and "humidity" in data:
+                with envLock:
+                    latestTemp = data.get("temperature")
+                    latestHumidity = data.get("humidity")
+                    fire = latestTemp is not None and latestTemp >= FIRE_TEMP_THRESHOLD
+                with fireLock:
+                    latestFireDetected = fire
     except websockets.exceptions.ConnectionClosed:
         pass
 
@@ -139,6 +140,7 @@ def set_env():
         # 화재 감지도 업데이트
         fire = temp >= FIRE_TEMP_THRESHOLD
         with fireLock:
+            global latestFireDetected
             latestFireDetected = fire
         return jsonify({"success": True})
     except Exception as e:
