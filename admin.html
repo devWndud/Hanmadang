@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>재난 모니터링 - 어드민</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --dark-gray: #181a1b;
+      --mid-gray: #232326;
+      --accent: #eebbc3;
+      --text: #f4f4f4;
+      --subtext: #b8c1ec;
+      --input-bg: #2a2d2e;
+      --input-border: #eebbc3;
+      --btn-bg: #eebbc3;
+      --btn-text: #181a1b;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--dark-gray);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Malgun Gothic', Arial, sans-serif;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      width: 100%;
+      background: var(--mid-gray);
+      padding: 2rem 0 1rem 0;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 0 1rem 0;
+    }
+    .admin-box {
+      background: var(--mid-gray);
+      border-radius: 1.2rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 95vw;
+      margin-bottom: 2rem;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+      width: 100%;
+      max-width: 300px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+      color: var(--text);
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.7rem;
+      border: 2px solid var(--input-border);
+      border-radius: 0.5rem;
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn {
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border: none;
+      padding: 0.7rem 1.5rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 0.5rem;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #d4a5a5;
+    }
+    .btn:active {
+      transform: translateY(1px);
+    }
+    .current-values {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: var(--input-bg);
+      border-radius: 0.5rem;
+      text-align: center;
+      width: 100%;
+      max-width: 300px;
+    }
+    .current-values h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--accent);
+    }
+    .current-values p {
+      margin: 0.3rem 0;
+      color: var(--subtext);
+    }
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.2rem; }
+      .admin-box { padding: 1rem; }
+      .form-group input { font-size: 0.9rem; }
+      .btn { font-size: 0.9rem; padding: 0.6rem 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>재난 모니터링 - 어드민</h1>
+  </header>
+  <main>
+    <div class="admin-box">
+      <div class="form-group">
+        <label for="temperature">온도 (Celsius)</label>
+        <input type="number" id="temperature" step="0.1" placeholder="예: 23.5">
+      </div>
+      <div class="form-group">
+        <label for="humidity">습도 (%)</label>
+        <input type="number" id="humidity" step="0.1" placeholder="예: 45.2">
+      </div>
+      <button class="btn" onclick="saveValues()">저장</button>
+      <button class="btn" onclick="resetValues()">초기화</button>
+      <div class="current-values">
+        <h3>현재 값</h3>
+        <p>온도: <span id="currentTemp">-</span>°C</p>
+        <p>습도: <span id="currentHum">-</span>%</p>
+      </div>
+    </div>
+  </main>
+  <script>
+    function saveValues() {
+      const temp = document.getElementById('temperature').value;
+      const hum = document.getElementById('humidity').value;
+      if (temp === '' || hum === '') {
+        alert('온도와 습도를 모두 입력해주세요.');
+        return;
+      }
+      fetch('/set_env', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ temperature: parseFloat(temp), humidity: parseFloat(hum) })
+      }).then(res => res.json()).then(data => {
+        if (data.success) {
+          alert('저장되었습니다.');
+          loadCurrentValues();
+        } else {
+          alert('저장 실패: ' + data.error);
+        }
+      }).catch(e => alert('저장 중 오류: ' + e));
+    }
+    function resetValues() {
+      document.getElementById('temperature').value = '';
+      document.getElementById('humidity').value = '';
+    }
+    function loadCurrentValues() {
+      fetch('/env_status').then(res => res.json()).then(data => {
+        document.getElementById('currentTemp').textContent = data.temperature || '-';
+        document.getElementById('currentHum').textContent = data.humidity || '-';
+      }).catch(e => console.error(e));
+    }
+    loadCurrentValues();
+    setInterval(loadCurrentValues, 2000);
+  </script>
+</body>
+</html>

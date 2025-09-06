@@ -10,7 +10,7 @@ import numpy as np
 import cv2
 import json
 import time
-from flask import Flask, Response, send_from_directory, jsonify
+from flask import Flask, Response, send_from_directory, jsonify, request
 import torch
 import os
 
@@ -96,6 +96,11 @@ def video_feed():
 def serve_monitoring():
     return send_from_directory(os.path.abspath(os.path.dirname(__file__)), 'video.html')
 
+# admin.html을 서비스하는 엔드포인트 추가
+@app.route('/admin')
+def serve_admin():
+    return send_from_directory(os.path.abspath(os.path.dirname(__file__)), 'admin.html')
+
 # 사람 감지 상태를 반환하는 엔드포인트
 @app.route('/person_status')
 def person_status():
@@ -117,6 +122,27 @@ def env_status():
         temp = latestTemp
         hum = latestHumidity
     return jsonify({"temperature": temp, "humidity": hum})
+
+# 온습도 값 설정 (어드민용)
+@app.route('/set_env', methods=['POST'])
+def set_env():
+    try:
+        data = request.get_json()
+        temp = data.get('temperature')
+        hum = data.get('humidity')
+        if temp is None or hum is None:
+            return jsonify({"success": False, "error": "온도와 습도가 필요합니다"})
+        with envLock:
+            global latestTemp, latestHumidity
+            latestTemp = temp
+            latestHumidity = hum
+        # 화재 감지도 업데이트
+        fire = temp >= FIRE_TEMP_THRESHOLD
+        with fireLock:
+            latestFireDetected = fire
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
     t = threading.Thread(target=ws_thread, daemon=True)
