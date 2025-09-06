@@ -16,14 +16,54 @@ import io
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-model = YOLO('yolov8x.pt')
-
-latestFrames = {}
-frameLock = threading.Lock()
-
-recentBottleBoxes = []
-
 app = Flask(__name__)
+latestFrame = None
+frameLock = threading.Lock()
+model = YOLO('yolov8n.pt')  # 필요시 yolov8x.pt 등으로 변경
+
+# WebSocket으로 프레임 수신, YOLO 감지 후 latestFrame에 저장
+async def handle_client(websocket):
+    global latestFrame
+    try:
+        while True:
+            msg = await websocket.recv()
+            data = json.loads(msg)
+            imgBytes = bytes(data["img"])
+            img = cv2.imdecode(np.frombuffer(imgBytes, np.uint8), cv2.IMREAD_COLOR)
+            if img is None:
+                continue
+            # YOLO 감지
+            results = model(img, verbose=False)
+            for r in results:
+                for box in r.boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    label = model.names[int(box.cls[0])]
+                    conf = float(box.conf[0])
+                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(img, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            with frameLock:
+                latestFrame = img.copy()
+    except websockets.exceptions.ConnectionClosed:
+        pass
+
+# Flask MJPEG 스트리밍
+@app.route('/video_feed')
+def video_feed():
+    def generate():
+        while True:
+            with frameLock:
+                frame = latestFrame.copy() if latestFrame is not None else None
+            if frame is None:
+                time.sleep(0.05)
+                continue
+            ret, jpeg = cv2.imencode('.jpg', frame)
+            if not ret:
+                continue
+            frame_bytes = jpeg.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            time.sleep(0.03)
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def start_flask():
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
